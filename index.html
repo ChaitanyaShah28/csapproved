@@ -874,6 +874,7 @@
     const GEMINI_RESPONSE_SCHEMA = {
       type: 'OBJECT',
       properties: {
+        isFoodProduct: { type: 'BOOLEAN' },
         productName: { type: 'STRING' },
         brand: { type: 'STRING' },
         score: { type: 'INTEGER' },
@@ -980,14 +981,15 @@
       required: [
         'productName', 'brand', 'score', 'verdict', 'summary',
         'novaGroup', 'calories', 'nutrients', 'positives',
-        'negatives', 'additives', 'dietaryFlags'
+        'negatives', 'additives', 'dietaryFlags','isFoodProduct'
       ]
     };
 
 async function analyzeImageWithGemini(base64Data, mimeType) {
       const prompt = `You are PureScan, an expert nutritionist and food label analyst.
-Analyze the provided food product or nutrition label photo.
-Extract accurate nutrition facts, ingredients, NOVA food processing group (1=Unprocessed, 2=Culinary Ingredient, 3=Processed, 4=Ultra-Processed), and calculate an objective health score from 0 to 100 (75-100 = Approved, 45-74 = Moderate, 0-44 = Avoid).
+First, determine whether the image actually shows a food product, beverage, whole food, or nutrition/ingredients label.
+Set isFoodProduct to true ONLY if it is an edible food/drink item or food label. If it is anything else (such as a document, spreadsheet, person, electronic device, or random object), set isFoodProduct to false and briefly note what the image shows in summary.
+If isFoodProduct is true, extract accurate nutrition facts, ingredients, NOVA food processing group (1=Unprocessed, 2=Culinary Ingredient, 3=Processed, 4=Ultra-Processed), and calculate an objective health score from 0 to 100 (75-100 = Approved, 45-74 = Moderate, 0-44 = Avoid).
 If the photo is a whole food (like an apple or banana) or front-of-pack without a visible table, estimate standard nutritional values for that product.
 For dietaryFlags, include applicable tags from this vocabulary: "High Sugar", "Artificial Additives", "Contains Palm Oil", "Not Vegan", "Contains Gluten".
 Keep summary concise (1-2 clear sentences). Provide exact values in positives/negatives.`;
@@ -1073,6 +1075,11 @@ Keep summary concise (1-2 clear sentences). Provide exact values in positives/ne
           analyzeImageWithGemini(base64Data, mimeType),
           minAnimationTime
         ]);
+        if (aiData.isFoodProduct === false) {
+          switchView('capture');
+          showToast('Not a food product — please scan a food item or nutrition label.', 'warn');
+          return;
+        }
         analysisResult = aiData;
         analysisResult.imageUrl = dataUrl;
       } catch (err) {
@@ -1085,7 +1092,6 @@ Keep summary concise (1-2 clear sentences). Provide exact values in positives/ne
       addScanToHistory(analysisResult);
       renderResultView(analysisResult);
     }
-
     function runSampleProductScan(sampleId) {
       const sample = SAMPLE_PRODUCTS.find(p => p.id === sampleId);
       if (!sample) return;
