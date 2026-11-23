@@ -1,0 +1,18 @@
+{
+  "name": "CS Approved — Food Health Scanner",
+  "short_name": "CS Approved",
+  "description": "Instant AI food label and ingredient health inspector.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#10B981",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
