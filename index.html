@@ -985,26 +985,6 @@
     };
 
 async function analyzeImageWithGemini(base64Data, mimeType) {
-  // Keep your existing prompt and schema/responseSchema variables here
-
-  const response = await fetch('/api/scan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      base64Image: base64Data,
-      mimeType: mimeType || 'image/jpeg',
-      prompt: prompt,               // use the exact prompt variable name in your function
-      responseSchema: responseSchema // use the exact schema variable name in your function
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`Scan failed with status ${response.status}`);
-  }
-
-  return await response.json();
-};
-
       const prompt = `You are PureScan, an expert nutritionist and food label analyst.
 Analyze the provided food product or nutrition label photo.
 Extract accurate nutrition facts, ingredients, NOVA food processing group (1=Unprocessed, 2=Culinary Ingredient, 3=Processed, 4=Ultra-Processed), and calculate an objective health score from 0 to 100 (75-100 = Approved, 45-74 = Moderate, 0-44 = Avoid).
@@ -1012,63 +992,28 @@ If the photo is a whole food (like an apple or banana) or front-of-pack without 
 For dietaryFlags, include applicable tags from this vocabulary: "High Sugar", "Artificial Additives", "Contains Palm Oil", "Not Vegan", "Contains Gluten".
 Keep summary concise (1-2 clear sentences). Provide exact values in positives/negatives.`;
 
-      const payload = {
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: mimeType,
-                  data: base64Data
-                }
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
+      const response = await fetch('/api/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base64Image: base64Data,
+          mimeType: mimeType || 'image/jpeg',
+          prompt: prompt,
           responseSchema: GEMINI_RESPONSE_SCHEMA
-        }
-      };
+        })
+      });
 
-      const delays = [1000, 2000, 4000];
-      for (let attempt = 0; attempt <= delays.length; attempt++) {
-        try {
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-
-          if (!response.ok) {
-            if (attempt < delays.length) {
-              await new Promise(r => setTimeout(r, delays[attempt]));
-              continue;
-            }
-            throw new Error(`HTTP ${response.status}`);
-          }
-
-          const result = await response.json();
-          const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (!rawText) throw new Error('Empty AI response');
-
-          const parsed = JSON.parse(rawText);
-          // Clamp score and novaGroup safely
-          parsed.score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 50)));
-          parsed.novaGroup = Math.max(1, Math.min(4, Math.round(Number(parsed.novaGroup) || 3)));
-          parsed.id = 'scan-' + Date.now();
-          parsed.sourceType = 'AI Vision';
-          return parsed;
-        } catch (err) {
-          if (attempt < delays.length) {
-            await new Promise(r => setTimeout(r, delays[attempt]));
-          } else {
-            throw err;
-          }
-        }
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${response.status}`);
       }
+
+      const parsed = await response.json();
+      parsed.score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 50)));
+      parsed.novaGroup = Math.max(1, Math.min(4, Math.round(Number(parsed.novaGroup) || 3)));
+      parsed.id = 'scan-' + Date.now();
+      parsed.sourceType = 'AI Vision';
+      return parsed;
     }
 
     // =========================================================================
