@@ -786,13 +786,13 @@
       }, 3000);
     }
 
-    function getScoreTheme(score) {
+function getScoreTheme(score) {
       if (score >= 75) {
         return {
           stroke: '#10B981',
           badgeBg: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
           dot: 'bg-emerald-500',
-          verdictLabel: 'Approved for Healthy Eating',
+          verdictLabel: 'Chaitanya Approved',
           shortBadge: 'bg-emerald-100 text-emerald-800'
         };
       }
@@ -801,7 +801,7 @@
           stroke: '#F59E0B',
           badgeBg: 'bg-amber-50 text-amber-800 border border-amber-200',
           dot: 'bg-amber-500',
-          verdictLabel: 'Eat in Moderation',
+          verdictLabel: "Chaitanya's Caution",
           shortBadge: 'bg-amber-100 text-amber-800'
         };
       }
@@ -809,7 +809,7 @@
         stroke: '#EF4444',
         badgeBg: 'bg-rose-50 text-rose-700 border border-rose-200',
         dot: 'bg-rose-500',
-        verdictLabel: 'Not Recommended',
+        verdictLabel: 'Not Chaitanya Approved',
         shortBadge: 'bg-rose-100 text-rose-800'
       };
     }
