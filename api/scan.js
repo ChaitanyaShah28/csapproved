@@ -10,10 +10,10 @@ export default async function handler(req, res) {
   }
 
   const { base64Image, mimeType, prompt, responseSchema } = req.body;
-  const models = [
-    'gemini-3.1-flash-lite',
+const models = [
+    'gemini-2.5-flash-lite',
+    'gemini-4-hydrogen',
     'gemini-3.5-flash-lite',
-    'gemini-3.6-flash',
     'gemini-3.8-flash',
   ];
 
