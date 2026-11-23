@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PureScan — Smart Food Health Scanner</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            canvas: '#F8FAFC',
+            emeraldBrand: '#10B981',
+            amberBrand: '#F59E0B',
+            roseBrand: '#EF4444',
+          },
+          boxShadow: {
+            soft: '0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04)',
+            card: '0 10px 30px -5px rgba(15, 23, 42, 0.07), 0 4px 10px -2px rgba(15, 23, 42, 0.03)',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Hide scrollbar for horizontal filter pills */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Animated laser scan beam */
+    @keyframes scanSweep {
+      0% {
+        top: 6%;
+        opacity: 0.9;
+      }
+      50% {
+        top: 88%;
+        opacity: 1;
+      }
+      100% {
+        top: 6%;
+        opacity: 0.9;
+      }
+    }
+
+    .scan-beam {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, rgba(16,185,129,0) 0%, #10B981 20%, #34D399 50%, #10B981 80%, rgba(16,185,129,0) 100%);
+      box-shadow: 0 0 18px 4px rgba(16, 185, 129, 0.55);
+      animation: scanSweep 2.1s ease-in-out infinite;
+    }
+
+    .scan-beam::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -28px;
+      height: 28px;
+      background: linear-gradient(180deg, rgba(16,185,129,0) 0%, rgba(16,185,129,0.22) 100%);
+    }
+
+    /* Smooth entrance animation */
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fade-up {
+      animation: fadeSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* Circular progress ring transition */
+    .score-ring-circle {
+      transition: stroke-dashoffset 1s cubic-bezier(0.22, 1, 0.36, 1);
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    /* Drag-over highlight */
+    .drop-active {
+      border-color: #10B981 !important;
+      background-color: #ECFDF5 !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-canvas flex flex-col items-center selection:bg-emerald-100 selection:text-emerald-900">
+
+  <!-- Main Mobile-First App Shell -->
+  <div class="w-full max-w-lg min-h-screen flex flex-col bg-canvas sm:my-4 sm:min-h-[calc(100vh-2rem)] sm:rounded-[2rem] sm:shadow-card sm:border sm:border-slate-200/80 overflow-hidden relative">
+
+    <!-- ==================== HEADER ==================== -->
+    <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-100 px-4 pt-4 pb-3">
+      <div class="flex items-center justify-between mb-3">
+        <!-- Brand Logo & Title -->
+        <button id="homeLogoBtn" class="flex items-center gap-2.5 text-left focus:outline-none group" aria-label="Return to PureScan Home">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+            <!-- Inline SVG: Leaf + Scanner Frame -->
+            <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 7V5a2 2 0 0 1 2-2h2" />
+              <path d="M16 3h2a2 2 0 0 1 2 2v2" />
+              <path d="M20 17v2a2 2 0 0 1-2 2h-2" />
+              <path d="M8 21H6a2 2 0 0 1-2-2v-2" />
+              <path d="M9 15c2.5 0 6-2 6-6-4 0-6 3.5-6 6Z" fill="currentColor" fill-opacity="0.25" />
+              <path d="M9 15l2.5-2.5" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg font-extrabold tracking-tight text-slate-900 leading-none">PureScan</h1>
+              <span id="modeBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                AI Vision
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Instant Food Health Inspector</p>
+          </div>
+        </button>
+
+        <!-- Quick History Jump Button (Visible when scans exist) -->
+        <button id="historyHeaderBtn" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200/80 transition-colors">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span id="historyCountText">0</span>
+        </button>
+      </div>
+
+      <!-- Dietary Profile Filter Bar -->
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">Filters:</span>
+        <div id="dietaryFiltersBar" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+          <!-- Rendered dynamically via JS -->
+        </div>
+      </div>
+    </header>
+
+    <!-- ==================== TOAST NOTIFICATION ==================== -->
+    <div id="toastContainer" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 opacity-0 -translate-y-2 w-[90%] max-w-sm">
+      <div id="toastBox" class="bg-slate-900 text-white text-xs font-medium px-4 py-3 rounded-2xl shadow-lg flex items-center gap-2.5">
+        <span id="toastIcon"></span>
+        <span id="toastMessage"></span>
+      </div>
+    </div>
+
+    <!-- ==================== MAIN CONTENT ==================== -->
+    <main class="flex-1 px-4 py-5 space-y-5 overflow-x-hidden">
+
+      <!-- VIEW 1: CAPTURE & UPLOAD INTERFACE -->
+      <section id="captureView" class="space-y-5 animate-fade-up">
+
+        <!-- Hero Capture Card -->
+        <div id="dropZone" class="bg-white rounded-3xl p-5 shadow-soft border-2 border-dashed border-slate-200 transition-all duration-200">
+          <div class="text-center mb-5">
+            <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                <circle cx="12" cy="13" r="3"/>
+              </svg>
+            </div>
+            <h2 class="text-lg font-bold text-slate-900">Scan a Food Label or Product</h2>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1 max-w-xs mx-auto">
+              Snap a photo of the nutrition facts, ingredients list, or front packaging to check if it's healthy.
+            </p>
+          </div>
+
+          <!-- Primary Action Buttons -->
+          <div class="grid grid-cols-2 gap-3">
+            <!-- Snap Photo (Mobile Camera Input) -->
+            <label for="cameraInput" class="cursor-pointer flex flex-col items-center justify-center gap-1.5 py-3.5 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-semibold text-sm shadow-sm transition-all">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              <span>Snap Photo</span>
+            </label>
+            <input id="cameraInput" type="file" accept="image/*" capture="environment" class="hidden" />
+
+            <!-- Upload Image -->
+            <label for="fileInput" class="cursor-pointer flex flex-col items-center justify-center gap-1.5 py-3.5 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200/80 active:scale-[0.98] text-slate-800 font-semibold text-sm transition-all">
+              <svg class="w-5 h-5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <span>Upload Image</span>
+            </label>
+            <input id="fileInput" type="file" accept="image/*" class="hidden" />
+          </div>
+
+          <!-- Optional Live Webcam Button (Great for Desktop) -->
+          <button id="openWebcamBtn" type="button" class="mt-3 w-full py-2.5 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-semibold flex items-center justify-center gap-2 transition-colors">
+            <svg class="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="23 7 16 12 23 17 23 7"></polygon>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            </svg>
+            Use Live Webcam (Desktop / Browser)
+          </button>
+
+          <p class="text-[11px] text-slate-400 text-center mt-3">
+            Tip: Drag &amp; drop a food photo directly onto this card
+          </p>
+        </div>
+
+        <!-- Try a Sample Product Section -->
+        <div class="space-y-3">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Try a Sample Product</h3>
+            <span class="text-[11px] text-slate-400">Instant Demo</span>
+          </div>
+
+          <div id="sampleProductsGrid" class="space-y-2.5">
+            <!-- Rendered dynamically via JS -->
+          </div>
+        </div>
+
+        <!-- Recent Scans History (Capture View) -->
+        <div id="recentScansCaptureWrap" class="hidden space-y-3 pt-1">
+          <div class="flex items-center justify-between px-1">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Recent Scans</h3>
+            <button id="clearHistoryBtn" class="text-[11px] font-semibold text-slate-400 hover:text-rose-500 transition-colors">Clear</button>
+          </div>
+          <div id="recentScansCaptureList" class="space-y-2"></div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: SCANNING OVERLAY / ANALYSIS IN PROGRESS -->
+      <section id="scanningView" class="hidden animate-fade-up">
+        <div class="bg-white rounded-3xl p-5 shadow-soft border border-slate-100 space-y-5">
+          <!-- Image Preview with Animated Laser Beam -->
+          <div class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center">
+            <img id="scanningPreviewImg" src="" alt="Product being scanned" class="w-full h-full object-cover opacity-85" />
+            <!-- Scanner Corner Brackets -->
+            <div class="absolute inset-4 pointer-events-none">
+              <div class="absolute top-0 left-0 w-7 h-7 border-t-[3px] border-l-[3px] border-emerald-400 rounded-tl-xl"></div>
+              <div class="absolute top-0 right-0 w-7 h-7 border-t-[3px] border-r-[3px] border-emerald-400 rounded-tr-xl"></div>
+              <div class="absolute bottom-0 left-0 w-7 h-7 border-b-[3px] border-l-[3px] border-emerald-400 rounded-bl-xl"></div>
+              <div class="absolute bottom-0 right-0 w-7 h-7 border-b-[3px] border-r-[3px] border-emerald-400 rounded-br-xl"></div>
+            </div>
+            <!-- Moving Laser Beam -->
+            <div class="scan-beam"></div>
+            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-900/80 backdrop-blur-md text-white text-xs font-semibold px-3.5 py-1.5 rounded-full flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span id="scanStatusText">Reading nutrition label...</span>
+            </div>
+          </div>
+
+          <!-- Step Indicators -->
+          <div class="space-y-2.5 px-1">
+            <div id="step1" class="flex items-center gap-3 text-xs font-medium text-slate-700">
+              <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                <svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+              </span>
+              <span>Reading product packaging &amp; nutrition facts</span>
+            </div>
+            <div id="step2" class="flex items-center gap-3 text-xs font-medium text-slate-400">
+              <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center shrink-0 text-[10px] font-bold">2</span>
+              <span>Inspecting additives &amp; NOVA processing level</span>
+            </div>
+            <div id="step3" class="flex items-center gap-3 text-xs font-medium text-slate-400">
+              <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center shrink-0 text-[10px] font-bold">3</span>
+              <span>Calculating personalized health score</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: HEALTH SCORE BREAKDOWN -->
+      <section id="resultView" class="hidden space-y-4 animate-fade-up">
+
+        <!-- Hero Score Card -->
+        <div class="bg-white rounded-3xl p-5 shadow-soft border border-slate-100">
+          <!-- Top Product Meta Row -->
+          <div class="flex items-start gap-3.5 mb-4">
+            <div id="resultThumbWrap" class="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center border border-slate-200/70">
+              <!-- Populated with <img> or inline SVG -->
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span id="resultBrand" class="text-[11px] font-bold uppercase tracking-wider text-slate-400"></span>
+                <span id="analysisSourceBadge" class="hidden px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500"></span>
+              </div>
+              <h2 id="resultProductName" class="text-lg font-extrabold text-slate-900 leading-snug break-words"></h2>
+              <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span id="resultNovaBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-700"></span>
+                <span id="resultCaloriesBadge" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-600"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Score Ring + Traffic Light Verdict -->
+          <div class="flex items-center gap-5 bg-slate-50/90 rounded-2xl p-4 border border-slate-100">
+            <!-- Animated SVG Circular Progress Ring -->
+            <div class="relative w-24 h-24 shrink-0 flex items-center justify-center">
+              <svg class="w-24 h-24" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#E2E8F0" stroke-width="9" />
+                <circle id="scoreRingProgress" class="score-ring-circle" cx="50" cy="50" r="42" fill="none" stroke="#10B981" stroke-width="9" stroke-linecap="round" stroke-dasharray="263.89" stroke-dashoffset="263.89" />
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <span id="scoreNumber" class="text-2xl font-extrabold text-slate-900 leading-none">0</span>
+                <span class="text-[10px] font-semibold text-slate-400 mt-0.5">/ 100</span>
+              </div>
+            </div>
+
+            <!-- Traffic-Light Status & Summary -->
+            <div class="flex-1 min-w-0">
+              <div id="verdictBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mb-2">
+                <span id="verdictDot" class="w-2 h-2 rounded-full"></span>
+                <span id="verdictText"></span>
+              </div>
+              <p id="resultSummary" class="text-xs sm:text-[13px] text-slate-600 leading-relaxed"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Personalized Dietary Alerts Banner (Shown if active filters conflict) -->
+        <div id="dietaryAlertBanner" class="hidden rounded-2xl p-4 bg-rose-50 border border-rose-200/80 shadow-sm">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-xs font-bold text-rose-800 uppercase tracking-wide">Dietary Profile Alert</h3>
+              <p class="text-xs text-rose-700 mt-0.5">This product conflicts with your active dietary filters:</p>
+              <div id="dietaryAlertTags" class="flex flex-wrap gap-1.5 mt-2"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Positives & Negatives Breakdown -->
+        <div class="bg-white rounded-3xl p-5 shadow-soft border border-slate-100 space-y-4">
+          <h3 class="text-sm font-bold text-slate-900">Health Breakdown</h3>
+
+          <!-- Negatives -->
+          <div id="negativesSection" class="space-y-2.5">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-rose-600">Points of Concern</div>
+            <div id="negativesList" class="space-y-2"></div>
+          </div>
+
+          <!-- Divider -->
+          <div id="breakdownDivider" class="border-t border-slate-100"></div>
+
+          <!-- Positives -->
+          <div id="positivesSection" class="space-y-2.5">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Nutritional Strengths</div>
+            <div id="positivesList" class="space-y-2"></div>
+          </div>
+        </div>
+
+        <!-- Nutrition Facts Visual Bars -->
+        <div class="bg-white rounded-3xl p-5 shadow-soft border border-slate-100 space-y-3.5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-slate-900">Key Nutrients (Per Serving)</h3>
+            <div class="flex items-center gap-2 text-[10px] font-semibold text-slate-400">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>Good</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span>Med</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span>High</span>
+            </div>
+          </div>
+          <div id="nutritionBarsList" class="space-y-3.5">
+            <!-- Rendered dynamically via JS -->
+          </div>
+        </div>
+
+        <!-- Additives & Ingredients Inspector -->
+        <div class="bg-white rounded-3xl p-5 shadow-soft border border-slate-100 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-slate-900">Additives &amp; Ingredients Inspector</h3>
+            <span id="additivesCountBadge" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600"></span>
+          </div>
+          <div id="additivesList" class="space-y-2">
+            <!-- Rendered dynamically via JS -->
+          </div>
+        </div>
+
+        <!-- Primary Action: Scan Another Product -->
+        <button id="scanAnotherBtn" type="button" class="w-full py-3.5 px-5 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-semibold text-sm shadow-sm flex items-center justify-center gap-2 transition-all">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          Scan Another Product
+        </button>
+
+        <!-- Compact Recent Scans History -->
+        <div id="recentScansResultWrap" class="hidden space-y-2.5 pt-2">
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 px-1">Recent Scans — Tap to Compare</h3>
+          <div id="recentScansResultList" class="space-y-2"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ==================== FOOTER DISCLAIMER ==================== -->
+    <footer class="px-5 py-4 text-center border-t border-slate-100 bg-white/70 mt-auto">
+      <p class="text-[11px] text-slate-400 leading-relaxed">
+        <strong>PureScan Disclaimer:</strong> Health scores and ingredient insights are provided for informational guidance only and do not constitute medical or dietary advice. Always verify allergen labels directly on product packaging.
+      </p>
+    </footer>
+  </div>
+
+  <!-- ==================== LIVE WEBCAM MODAL ==================== -->
+  <div id="webcamModal" class="hidden fixed inset-0 z-50 bg-slate-900/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-fade-up">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+        <h3 class="text-sm font-bold text-slate-900">Capture Product Photo</h3>
+        <button id="closeWebcamBtn" type="button" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors" aria-label="Close camera">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="relative bg-slate-950 aspect-[4/3] flex items-center justify-center overflow-hidden">
+        <video id="webcamVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+        <div id="webcamError" class="hidden p-6 text-center text-white text-xs space-y-2">
+          <p class="font-semibold text-rose-400">Camera access unavailable</p>
+          <p class="text-slate-300">Please allow camera permissions in your browser or use the "Upload Image" button instead.</p>
+        </div>
+      </div>
+      <div class="p-4 flex items-center justify-center gap-3 bg-white">
+        <button id="captureWebcamBtn" type="button" class="flex-1 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+          Capture &amp; Analyze
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden canvas for image compression / webcam snapshots -->
+  <canvas id="processingCanvas" class="hidden"></canvas>
+
+  <!-- ==================== APPLICATION LOGIC ==================== -->
+  <script>
+    /**
+     * PureScan — Smart Food Health Scanner
+     * Architecture:
+     * 1. Config & Sample Data (Dietary filters, 3 realistic preset samples, smart fallback data)
+     * 2. Session State (activeFilters, currentResult, recentScans, webcamStream)
+     * 3. Gemini Vision API Integration (gemini-3-flash-preview with structured JSON schema + exponential backoff)
+     * 4. UI Rendering Engine (Circular score ring, live dietary alerts, nutrient bars, interactive additive accordions)
+     */
+
+    // =========================================================================
+    // 1. CONFIGURATION & SAMPLE DATA
+    // =========================================================================
+
+    const DIETARY_FILTERS = [
+      { id: 'low_sugar', label: 'Low Sugar', matchKeywords: ['high sugar', 'added sugar', 'sugar'] },
+      { id: 'no_additives', label: 'No Artificial Additives', matchKeywords: ['artificial', 'additive', 'preservative', 'synthetic', 'dye', 'sweetener'] },
+      { id: 'no_palm_oil', label: 'No Palm Oil', matchKeywords: ['palm oil', 'palm'] },
+      { id: 'vegan', label: 'Vegan', matchKeywords: ['not vegan', 'dairy', 'honey', 'milk', 'whey', 'gelatin', 'animal'] },
+      { id: 'gluten_free', label: 'Gluten-Free', matchKeywords: ['gluten', 'wheat', 'barley'] }
+    ];
+
+    const NOVA_LABELS = {
+      1: { label: 'NOVA 1: Unprocessed', color: 'bg-emerald-50 text-emerald-700 border border-emerald-200/70' },
+      2: { label: 'NOVA 2: Culinary Ingredient', color: 'bg-teal-50 text-teal-700 border border-teal-200/70' },
+      3: { label: 'NOVA 3: Processed', color: 'bg-amber-50 text-amber-700 border border-amber-200/70' },
+      4: { label: 'NOVA 4: Ultra-Processed', color: 'bg-rose-50 text-rose-700 border border-rose-200/70' }
+    };
+
+    // Inline SVG artwork for sample products (crisp, fast, zero external image failures)
+    const SAMPLE_SVGS = {
+      oats: `<svg viewBox="0 0 64 64" class="w-full h-full bg-emerald-50"><rect width="64" height="64" fill="#ECFDF5"/><circle cx="32" cy="36" r="18" fill="#D1FAE5"/><path d="M18 36c0 8 6.3 14 14 14s14-6 14-14H18z" fill="#059669"/><path d="M24 27c2-4 5-6 8-6s6 2 8 6" stroke="#10B981" stroke-width="3" stroke-linecap="round" fill="none"/><circle cx="28" cy="32" r="2.5" fill="#F59E0B"/><circle cx="36" cy="31" r="2.5" fill="#F59E0B"/><circle cx="32" cy="27" r="2.5" fill="#D97706"/></svg>`,
+      granola: `<svg viewBox="0 0 64 64" class="w-full h-full bg-amber-50"><rect width="64" height="64" fill="#FFFBEB"/><rect x="14" y="20" width="36" height="24" rx="6" fill="#D97706"/><rect x="17" y="23" width="30" height="18" rx="4" fill="#F59E0B"/><circle cx="24" cy="30" r="2.5" fill="#FEF3C7"/><circle cx="33" cy="34" r="3" fill="#78350F"/><circle cx="40" cy="29" r="2.5" fill="#FEF3C7"/><circle cx="28" cy="36" r="2" fill="#92400E"/></svg>`,
+      soda: `<svg viewBox="0 0 64 64" class="w-full h-full bg-rose-50"><rect width="64" height="64" fill="#FFF1F2"/><rect x="21" y="14" width="22" height="36" rx="5" fill="#E11D48"/><rect x="23" y="11" width="18" height="4" rx="2" fill="#94A3B8"/><path d="M34 22l-6 10h5l-2 9 7-11h-5l1-8z" fill="#FDE047"/></svg>`
+    };
+
+    const SAMPLE_PRODUCTS = [
+      {
+        id: 'sample-oats',
+        svgKey: 'oats',
+        sourceType: 'Sample Preset',
+        productName: 'Organic Steel-Cut Oats',
+        brand: 'Harvest Pure',
+        score: 92,
+        verdict: 'Approved',
+        summary: 'Minimally processed whole grain packed with soluble beta-glucan fiber, zero added sugars, and no additives. An ideal everyday staple.',
+        novaGroup: 1,
+        calories: 150,
+        nutrients: {
+          sugar: { value: 0, unit: 'g', percentDaily: 0, status: 'good' },
+          sodium: { value: 0, unit: 'mg', percentDaily: 0, status: 'good' },
+          saturatedFat: { value: 0.5, unit: 'g', percentDaily: 3, status: 'good' },
+          fiber: { value: 5, unit: 'g', percentDaily: 18, status: 'good' },
+          protein: { value: 6, unit: 'g', percentDaily: 12, status: 'good' }
+        },
+        positives: [
+          { title: 'Zero Added Sugar', detail: '0g sugar per 40g dry serving helps maintain steady blood glucose.' },
+          { title: 'High Soluble Fiber', detail: '5g dietary fiber supports gut health and healthy cholesterol levels.' },
+          { title: 'Single Whole Ingredient', detail: '100% organic whole grain oats with no preservatives or oils.' }
+        ],
+        negatives: [
+          { title: 'Potential Gluten Cross-Contact', detail: 'Oats are naturally gluten-free but may be processed in facilities that handle wheat.' }
+        ],
+        additives: [],
+        dietaryFlags: ['May Contain Gluten']
+      },
+      {
+        id: 'sample-granola',
+        svgKey: 'granola',
+        sourceType: 'Sample Preset',
+        productName: 'Honey Almond Granola Bar',
+        brand: 'TrailCrunch Co.',
+        score: 58,
+        verdict: 'Moderate',
+        summary: 'Provides decent fiber and healthy fats from roasted almonds, but contains moderate added sugars and refined palm kernel oil.',
+        novaGroup: 3,
+        calories: 210,
+        nutrients: {
+          sugar: { value: 11, unit: 'g', percentDaily: 22, status: 'moderate' },
+          sodium: { value: 145, unit: 'mg', percentDaily: 6, status: 'good' },
+          saturatedFat: { value: 3.5, unit: 'g', percentDaily: 18, status: 'moderate' },
+          fiber: { value: 3, unit: 'g', percentDaily: 11, status: 'good' },
+          protein: { value: 5, unit: 'g', percentDaily: 10, status: 'moderate' }
+        },
+        positives: [
+          { title: 'Whole Grain & Nuts', detail: 'First two ingredients are rolled oats and roasted almonds.' },
+          { title: 'Low Sodium', detail: '145mg sodium per bar keeps salt intake well within healthy limits.' }
+        ],
+        negatives: [
+          { title: 'Moderate Added Sugar', detail: '11g sugar per bar (from honey and brown rice syrup) — 22% of daily limit.' },
+          { title: 'Contains Palm Kernel Oil', detail: 'Used as a binder; raises saturated fat content and carries sustainability concerns.' }
+        ],
+        additives: [
+          {
+            name: 'Soy Lecithin',
+            code: 'E322',
+            risk: 'low',
+            reason: 'Common plant-based emulsifier used to keep oils and dry ingredients blended smoothly. Generally recognized as safe.'
+          },
+          {
+            name: 'Natural Flavorings',
+            code: 'Flavor',
+            risk: 'moderate',
+            reason: 'Umbrella term for extracted flavor compounds; lacks full transparency and often signals higher processing.'
+          }
+        ],
+        dietaryFlags: ['High Sugar', 'Contains Palm Oil', 'Not Vegan (Contains Honey)', 'Contains Gluten']
+      },
+      {
+        id: 'sample-soda',
+        svgKey: 'soda',
+        sourceType: 'Sample Preset',
+        productName: 'Neon Berry Energy Soda',
+        brand: 'VoltRush Beverages',
+        score: 22,
+        verdict: 'Avoid',
+        summary: 'Ultra-processed beverage loaded with 38g of added sugar, synthetic food dyes, and high caffeine. Best reserved for rare occasions or avoided.',
+        novaGroup: 4,
+        calories: 160,
+        nutrients: {
+          sugar: { value: 38, unit: 'g', percentDaily: 76, status: 'bad' },
+          sodium: { value: 210, unit: 'mg', percentDaily: 9, status: 'moderate' },
+          saturatedFat: { value: 0, unit: 'g', percentDaily: 0, status: 'good' },
+          fiber: { value: 0, unit: 'g', percentDaily: 0, status: 'bad' },
+          protein: { value: 0, unit: 'g', percentDaily: 0, status: 'bad' }
+        },
+        positives: [
+          { title: 'Fat-Free', detail: '0g saturated fat per 355ml can.' }
+        ],
+        negatives: [
+          { title: 'Excessive Added Sugar', detail: '38g of high-fructose corn syrup per can — exceeds most daily added sugar recommendations.' },
+          { title: 'Ultra-Processed Formula', detail: 'Contains artificial colors, chemical preservatives, and zero dietary fiber.' },
+          { title: 'High Stimulant Load', detail: '160mg synthetic caffeine may cause jitters or sleep disruption.' }
+        ],
+        additives: [
+          {
+            name: 'Red 40 (Allura Red AC)',
+            code: 'E129',
+            risk: 'high',
+            reason: 'Petroleum-derived synthetic food dye linked in some studies to hyperactivity in sensitive children.'
+          },
+          {
+            name: 'Sodium Benzoate',
+            code: 'E211',
+            risk: 'high',
+            reason: 'Synthetic preservative that can form trace benzene when combined with ascorbic acid (Vitamin C) under heat/light.'
+          },
+          {
+            name: 'Acesulfame Potassium',
+            code: 'E950',
+            risk: 'moderate',
+            reason: 'Artificial sweetener blended with sugar to intensify sweetness; ongoing research evaluates gut microbiome impact.'
+          }
+        ],
+        dietaryFlags: ['High Sugar', 'Artificial Additives']
+      }
+    ];
+
+    // Fallback analysis if Gemini API is unreachable or returns an error
+    function buildSimulatedFallback(fileName = '') {
+      const lower = fileName.toLowerCase();
+      if (lower.includes('oat') || lower.includes('salad') || lower.includes('fruit') || lower.includes('apple') || lower.includes('yogurt')) {
+        return { ...SAMPLE_PRODUCTS[0], id: 'sim-' + Date.now(), sourceType: 'Simulated Fallback' };
+      }
+      if (lower.includes('soda') || lower.includes('cola') || lower.includes('candy') || lower.includes('chip') || lower.includes('energy')) {
+        return { ...SAMPLE_PRODUCTS[2], id: 'sim-' + Date.now(), sourceType: 'Simulated Fallback' };
+      }
+      return {
+        id: 'sim-' + Date.now(),
+        sourceType: 'Simulated Fallback',
+        productName: 'Packaged Snack Product',
+        brand: 'Label Scan Preview',
+        score: 54,
+        verdict: 'Moderate',
+        summary: 'Moderately processed packaged item with balanced calories, though added sugars and emulsifiers reduce its overall nutritional rating.',
+        novaGroup: 3,
+        calories: 195,
+        nutrients: {
+          sugar: { value: 12, unit: 'g', percentDaily: 24, status: 'moderate' },
+          sodium: { value: 260, unit: 'mg', percentDaily: 11, status: 'moderate' },
+          saturatedFat: { value: 4, unit: 'g', percentDaily: 20, status: 'moderate' },
+          fiber: { value: 2.5, unit: 'g', percentDaily: 9, status: 'moderate' },
+          protein: { value: 4, unit: 'g', percentDaily: 8, status: 'moderate' }
+        },
+        positives: [
+          { title: 'Moderate Calorie Portion', detail: '195 kcal per serving fits reasonably into a balanced snack allowance.' },
+          { title: 'Contains Dietary Fiber', detail: '2.5g fiber helps slow digestion compared to refined snacks.' }
+        ],
+        negatives: [
+          { title: 'Added Sugar: 12g per serving', detail: 'Accounts for nearly a quarter of the recommended daily added sugar cap.' },
+          { title: 'Contains Refined Palm Oil', detail: 'Contributes 4g saturated fat per serving.' }
+        ],
+        additives: [
+          {
+            name: 'Mono- and Diglycerides',
+            code: 'E471',
+            risk: 'moderate',
+            reason: 'Commonly used emulsifier to extend shelf life and improve texture in packaged foods.'
+          },
+          {
+            name: 'Citric Acid',
+            code: 'E330',
+            risk: 'low',
+            reason: 'Widely used acidity regulator and antioxidant; considered safe for regular consumption.'
+          }
+        ],
+        dietaryFlags: ['High Sugar', 'Contains Palm Oil', 'Artificial Additives']
+      };
+    }
+
+    // =========================================================================
+    // 2. APPLICATION STATE & DOM REFERENCES
+    // =========================================================================
+
+    const state = {
+      activeFilters: new Set(['low_sugar', 'no_additives']),
+      currentResult: null,
+      recentScans: [],
+      webcamStream: null,
+      scanStepTimers: []
+    };
+
+    const dom = {
+      homeLogoBtn: document.getElementById('homeLogoBtn'),
+      modeBadge: document.getElementById('modeBadge'),
+      historyHeaderBtn: document.getElementById('historyHeaderBtn'),
+      historyCountText: document.getElementById('historyCountText'),
+      dietaryFiltersBar: document.getElementById('dietaryFiltersBar'),
+
+      captureView: document.getElementById('captureView'),
+      scanningView: document.getElementById('scanningView'),
+      resultView: document.getElementById('resultView'),
+
+      dropZone: document.getElementById('dropZone'),
+      cameraInput: document.getElementById('cameraInput'),
+      fileInput: document.getElementById('fileInput'),
+      openWebcamBtn: document.getElementById('openWebcamBtn'),
+      sampleProductsGrid: document.getElementById('sampleProductsGrid'),
+
+      scanningPreviewImg: document.getElementById('scanningPreviewImg'),
+      scanStatusText: document.getElementById('scanStatusText'),
+      step1: document.getElementById('step1'),
+      step2: document.getElementById('step2'),
+      step3: document.getElementById('step3'),
+
+      resultThumbWrap: document.getElementById('resultThumbWrap'),
+      resultBrand: document.getElementById('resultBrand'),
+      analysisSourceBadge: document.getElementById('analysisSourceBadge'),
+      resultProductName: document.getElementById('resultProductName'),
+      resultNovaBadge: document.getElementById('resultNovaBadge'),
+      resultCaloriesBadge: document.getElementById('resultCaloriesBadge'),
+      scoreRingProgress: document.getElementById('scoreRingProgress'),
+      scoreNumber: document.getElementById('scoreNumber'),
+      verdictBadge: document.getElementById('verdictBadge'),
+      verdictDot: document.getElementById('verdictDot'),
+      verdictText: document.getElementById('verdictText'),
+      resultSummary: document.getElementById('resultSummary'),
+
+      dietaryAlertBanner: document.getElementById('dietaryAlertBanner'),
+      dietaryAlertTags: document.getElementById('dietaryAlertTags'),
+
+      negativesSection: document.getElementById('negativesSection'),
+      negativesList: document.getElementById('negativesList'),
+      breakdownDivider: document.getElementById('breakdownDivider'),
+      positivesSection: document.getElementById('positivesSection'),
+      positivesList: document.getElementById('positivesList'),
+
+      nutritionBarsList: document.getElementById('nutritionBarsList'),
+      additivesCountBadge: document.getElementById('additivesCountBadge'),
+      additivesList: document.getElementById('additivesList'),
+
+      scanAnotherBtn: document.getElementById('scanAnotherBtn'),
+      recentScansCaptureWrap: document.getElementById('recentScansCaptureWrap'),
+      recentScansCaptureList: document.getElementById('recentScansCaptureList'),
+      recentScansResultWrap: document.getElementById('recentScansResultWrap'),
+      recentScansResultList: document.getElementById('recentScansResultList'),
+      clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+
+      webcamModal: document.getElementById('webcamModal'),
+      webcamVideo: document.getElementById('webcamVideo'),
+      webcamError: document.getElementById('webcamError'),
+      closeWebcamBtn: document.getElementById('closeWebcamBtn'),
+      captureWebcamBtn: document.getElementById('captureWebcamBtn'),
+      processingCanvas: document.getElementById('processingCanvas'),
+
+      toastContainer: document.getElementById('toastContainer'),
+      toastMessage: document.getElementById('toastMessage'),
+      toastIcon: document.getElementById('toastIcon')
+    };
+
+    // =========================================================================
+    // 3. UTILITIES & NOTIFICATIONS
+    // =========================================================================
+
+    let toastTimeout = null;
+    function showToast(message, type = 'info') {
+      const icons = {
+        info: '✨',
+        success: '✅',
+        warn: '⚠️'
+      };
+      dom.toastIcon.textContent = icons[type] || '✨';
+      dom.toastMessage.textContent = message;
+      dom.toastContainer.classList.remove('opacity-0', '-translate-y-2');
+      dom.toastContainer.classList.add('opacity-100', 'translate-y-0');
+
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        dom.toastContainer.classList.add('opacity-0', '-translate-y-2');
+        dom.toastContainer.classList.remove('opacity-100', 'translate-y-0');
+      }, 3000);
+    }
+
+    function getScoreTheme(score) {
+      if (score >= 75) {
+        return {
+          stroke: '#10B981',
+          badgeBg: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+          dot: 'bg-emerald-500',
+          verdictLabel: 'Approved for Healthy Eating',
+          shortBadge: 'bg-emerald-100 text-emerald-800'
+        };
+      }
+      if (score >= 45) {
+        return {
+          stroke: '#F59E0B',
+          badgeBg: 'bg-amber-50 text-amber-800 border border-amber-200',
+          dot: 'bg-amber-500',
+          verdictLabel: 'Eat in Moderation',
+          shortBadge: 'bg-amber-100 text-amber-800'
+        };
+      }
+      return {
+        stroke: '#EF4444',
+        badgeBg: 'bg-rose-50 text-rose-700 border border-rose-200',
+        dot: 'bg-rose-500',
+        verdictLabel: 'Not Recommended',
+        shortBadge: 'bg-rose-100 text-rose-800'
+      };
+    }
+
+    function switchView(viewName) {
+      dom.captureView.classList.add('hidden');
+      dom.scanningView.classList.add('hidden');
+      dom.resultView.classList.add('hidden');
+
+      if (viewName === 'capture') dom.captureView.classList.remove('hidden');
+      if (viewName === 'scanning') dom.scanningView.classList.remove('hidden');
+      if (viewName === 'result') dom.resultView.classList.remove('hidden');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /**
+     * Compress and resize image to max 1024px JPEG for fast AI Vision analysis.
+     */
+    function compressImageFromElement(imgElement) {
+      const canvas = dom.processingCanvas;
+      const ctx = canvas.getContext('2d');
+      const maxDim = 1024;
+      let width = imgElement.naturalWidth || imgElement.videoWidth || 640;
+      let height = imgElement.naturalHeight || imgElement.videoHeight || 480;
+
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(imgElement, 0, 0, width, height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      const base64Data = dataUrl.split(',')[1];
+      return { dataUrl, base64Data, mimeType: 'image/jpeg' };
+    }
+
+    function loadFileAsCompressedImage(file) {
+      return new Promise((resolve, reject) => {
+        if (!file || !file.type.startsWith('image/')) {
+          reject(new Error('Please select a valid image file.'));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            resolve(compressImageFromElement(img));
+          };
+          img.onerror = () => reject(new Error('Could not read the selected image.'));
+          img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error('Failed to load file.'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // =========================================================================
+    // 4. GEMINI VISION API INTEGRATION (WITH EXPONENTIAL BACKOFF & FALLBACK)
+    // =========================================================================
+
+    const GEMINI_RESPONSE_SCHEMA = {
+      type: 'OBJECT',
+      properties: {
+        productName: { type: 'STRING' },
+        brand: { type: 'STRING' },
+        score: { type: 'INTEGER' },
+        verdict: { type: 'STRING', enum: ['Approved', 'Moderate', 'Avoid'] },
+        summary: { type: 'STRING' },
+        novaGroup: { type: 'INTEGER' },
+        calories: { type: 'INTEGER' },
+        nutrients: {
+          type: 'OBJECT',
+          properties: {
+            sugar: {
+              type: 'OBJECT',
+              properties: {
+                value: { type: 'NUMBER' },
+                unit: { type: 'STRING' },
+                percentDaily: { type: 'INTEGER' },
+                status: { type: 'STRING', enum: ['good', 'moderate', 'bad'] }
+              },
+              required: ['value', 'unit', 'percentDaily', 'status']
+            },
+            sodium: {
+              type: 'OBJECT',
+              properties: {
+                value: { type: 'NUMBER' },
+                unit: { type: 'STRING' },
+                percentDaily: { type: 'INTEGER' },
+                status: { type: 'STRING', enum: ['good', 'moderate', 'bad'] }
+              },
+              required: ['value', 'unit', 'percentDaily', 'status']
+            },
+            saturatedFat: {
+              type: 'OBJECT',
+              properties: {
+                value: { type: 'NUMBER' },
+                unit: { type: 'STRING' },
+                percentDaily: { type: 'INTEGER' },
+                status: { type: 'STRING', enum: ['good', 'moderate', 'bad'] }
+              },
+              required: ['value', 'unit', 'percentDaily', 'status']
+            },
+            fiber: {
+              type: 'OBJECT',
+              properties: {
+                value: { type: 'NUMBER' },
+                unit: { type: 'STRING' },
+                percentDaily: { type: 'INTEGER' },
+                status: { type: 'STRING', enum: ['good', 'moderate', 'bad'] }
+              },
+              required: ['value', 'unit', 'percentDaily', 'status']
+            },
+            protein: {
+              type: 'OBJECT',
+              properties: {
+                value: { type: 'NUMBER' },
+                unit: { type: 'STRING' },
+                percentDaily: { type: 'INTEGER' },
+                status: { type: 'STRING', enum: ['good', 'moderate', 'bad'] }
+              },
+              required: ['value', 'unit', 'percentDaily', 'status']
+            }
+          },
+          required: ['sugar', 'sodium', 'saturatedFat', 'fiber', 'protein']
+        },
+        positives: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              title: { type: 'STRING' },
+              detail: { type: 'STRING' }
+            },
+            required: ['title', 'detail']
+          }
+        },
+        negatives: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              title: { type: 'STRING' },
+              detail: { type: 'STRING' }
+            },
+            required: ['title', 'detail']
+          }
+        },
+        additives: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              name: { type: 'STRING' },
+              code: { type: 'STRING' },
+              risk: { type: 'STRING', enum: ['low', 'moderate', 'high'] },
+              reason: { type: 'STRING' }
+            },
+            required: ['name', 'code', 'risk', 'reason']
+          }
+        },
+        dietaryFlags: {
+          type: 'ARRAY',
+          items: { type: 'STRING' }
+        }
+      },
+      required: [
+        'productName', 'brand', 'score', 'verdict', 'summary',
+        'novaGroup', 'calories', 'nutrients', 'positives',
+        'negatives', 'additives', 'dietaryFlags'
+      ]
+    };
+
+    async function analyzeImageWithGemini(base64Data, mimeType) {
+      const apiKey = ""; // Provided automatically at runtime by Canvas
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+      const prompt = `You are PureScan, an expert nutritionist and food label analyst.
+Analyze the provided food product or nutrition label photo.
+Extract accurate nutrition facts, ingredients, NOVA food processing group (1=Unprocessed, 2=Culinary Ingredient, 3=Processed, 4=Ultra-Processed), and calculate an objective health score from 0 to 100 (75-100 = Approved, 45-74 = Moderate, 0-44 = Avoid).
+If the photo is a whole food (like an apple or banana) or front-of-pack without a visible table, estimate standard nutritional values for that product.
+For dietaryFlags, include applicable tags from this vocabulary: "High Sugar", "Artificial Additives", "Contains Palm Oil", "Not Vegan", "Contains Gluten".
+Keep summary concise (1-2 clear sentences). Provide exact values in positives/negatives.`;
+
+      const payload = {
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: mimeType,
+                  data: base64Data
+                }
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: GEMINI_RESPONSE_SCHEMA
+        }
+      };
+
+      const delays = [1000, 2000, 4000];
+      for (let attempt = 0; attempt <= delays.length; attempt++) {
+        try {
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            if (attempt < delays.length) {
+              await new Promise(r => setTimeout(r, delays[attempt]));
+              continue;
+            }
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const result = await response.json();
+          const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!rawText) throw new Error('Empty AI response');
+
+          const parsed = JSON.parse(rawText);
+          // Clamp score and novaGroup safely
+          parsed.score = Math.max(0, Math.min(100, Math.round(Number(parsed.score) || 50)));
+          parsed.novaGroup = Math.max(1, Math.min(4, Math.round(Number(parsed.novaGroup) || 3)));
+          parsed.id = 'scan-' + Date.now();
+          parsed.sourceType = 'AI Vision';
+          return parsed;
+        } catch (err) {
+          if (attempt < delays.length) {
+            await new Promise(r => setTimeout(r, delays[attempt]));
+          } else {
+            throw err;
+          }
+        }
+      }
+    }
+
+    // =========================================================================
+    // 5. SCANNING ANIMATION FLOW
+    // =========================================================================
+
+    function resetScanSteps() {
+      state.scanStepTimers.forEach(t => clearTimeout(t));
+      state.scanStepTimers = [];
+
+      const spinnerSvg = `<svg class="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>`;
+      const checkSvg = `<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+      dom.scanStatusText.textContent = 'Reading nutrition label...';
+      setStepVisual(dom.step1, 'active', spinnerSvg);
+      setStepVisual(dom.step2, 'pending', '2');
+      setStepVisual(dom.step3, 'pending', '3');
+
+      state.scanStepTimers.push(setTimeout(() => {
+        dom.scanStatusText.textContent = 'Checking additives & NOVA level...';
+        setStepVisual(dom.step1, 'done', checkSvg);
+        setStepVisual(dom.step2, 'active', spinnerSvg);
+      }, 900));
+
+      state.scanStepTimers.push(setTimeout(() => {
+        dom.scanStatusText.textContent = 'Calculating personalized health score...';
+        setStepVisual(dom.step2, 'done', checkSvg);
+        setStepVisual(dom.step3, 'active', spinnerSvg);
+      }, 1850));
+    }
+
+    function setStepVisual(el, status, iconHtml) {
+      const badge = el.querySelector('span:first-child');
+      if (status === 'active') {
+        el.className = 'flex items-center gap-3 text-xs font-semibold text-slate-800';
+        badge.className = 'w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0';
+      } else if (status === 'done') {
+        el.className = 'flex items-center gap-3 text-xs font-medium text-emerald-700';
+        badge.className = 'w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0';
+      } else {
+        el.className = 'flex items-center gap-3 text-xs font-medium text-slate-400';
+        badge.className = 'w-5 h-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center shrink-0 text-[10px] font-bold';
+      }
+      badge.innerHTML = iconHtml;
+    }
+
+    async function processCapturedImage(dataUrl, base64Data, mimeType, fileName = '') {
+      dom.scanningPreviewImg.src = dataUrl;
+      switchView('scanning');
+      resetScanSteps();
+
+      const minAnimationTime = new Promise(resolve => setTimeout(resolve, 2100));
+
+      let analysisResult = null;
+      try {
+        const [aiData] = await Promise.all([
+          analyzeImageWithGemini(base64Data, mimeType),
+          minAnimationTime
+        ]);
+        analysisResult = aiData;
+        analysisResult.imageUrl = dataUrl;
+      } catch (err) {
+        await minAnimationTime;
+        analysisResult = buildSimulatedFallback(fileName);
+        analysisResult.imageUrl = dataUrl;
+        showToast('Live AI unavailable — showing smart simulated breakdown.', 'warn');
+      }
+
+      addScanToHistory(analysisResult);
+      renderResultView(analysisResult);
+    }
+
+    function runSampleProductScan(sampleId) {
+      const sample = SAMPLE_PRODUCTS.find(p => p.id === sampleId);
+      if (!sample) return;
+
+      // Render sample SVG as data URL for the scanning preview
+      const svgMarkup = SAMPLE_SVGS[sample.svgKey];
+      const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgMarkup);
+      dom.scanningPreviewImg.src = svgDataUrl;
+
+      switchView('scanning');
+      resetScanSteps();
+
+      setTimeout(() => {
+        const clone = { ...sample, id: sample.id + '-' + Date.now() };
+        addScanToHistory(clone);
+        renderResultView(clone);
+      }, 1400);
+    }
+
+    // =========================================================================
+    // 6. UI RENDERERS
+    // =========================================================================
+
+    function renderDietaryFilters() {
+      dom.dietaryFiltersBar.innerHTML = '';
+      DIETARY_FILTERS.forEach(filter => {
+        const isActive = state.activeFilters.has(filter.id);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+          isActive
+            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+        }`;
+        btn.innerHTML = isActive
+          ? `<span class="inline-flex items-center gap-1"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>${filter.label}</span>`
+          : filter.label;
+
+        btn.addEventListener('click', () => {
+          if (state.activeFilters.has(filter.id)) {
+            state.activeFilters.delete(filter.id);
+          } else {
+            state.activeFilters.add(filter.id);
+          }
+          renderDietaryFilters();
+          // Live update dietary alerts if currently viewing a result
+          if (state.currentResult && !dom.resultView.classList.contains('hidden')) {
+            renderPersonalizedAlerts(state.currentResult);
+          }
+        });
+
+        dom.dietaryFiltersBar.appendChild(btn);
+      });
+    }
+
+    function renderSampleProducts() {
+      dom.sampleProductsGrid.innerHTML = '';
+      SAMPLE_PRODUCTS.forEach(product => {
+        const theme = getScoreTheme(product.score);
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'w-full bg-white hover:bg-slate-50/90 active:scale-[0.99] rounded-2xl p-3 shadow-soft border border-slate-100 flex items-center gap-3.5 text-left transition-all group';
+        card.innerHTML = `
+          <div class="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-slate-100">
+            ${SAMPLE_SVGS[product.svgKey]}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-bold text-slate-900 truncate group-hover:text-emerald-700 transition-colors">${product.productName}</div>
+            <div class="text-xs text-slate-500 truncate">${product.brand} &bull; ${NOVA_LABELS[product.novaGroup].label}</div>
+          </div>
+          <div class="shrink-0 flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-xl text-xs font-extrabold ${theme.shortBadge}">
+              ${product.score}/100
+            </span>
+            <svg class="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        `;
+        card.addEventListener('click', () => runSampleProductScan(product.id));
+        dom.sampleProductsGrid.appendChild(card);
+      });
+    }
+
+    function renderResultView(data) {
+      state.currentResult = data;
+      const theme = getScoreTheme(data.score);
+
+      // Thumbnail
+      if (data.imageUrl) {
+        dom.resultThumbWrap.innerHTML = `<img src="${data.imageUrl}" alt="${data.productName}" class="w-full h-full object-cover" />`;
+      } else if (data.svgKey && SAMPLE_SVGS[data.svgKey]) {
+        dom.resultThumbWrap.innerHTML = SAMPLE_SVGS[data.svgKey];
+      } else {
+        dom.resultThumbWrap.innerHTML = `<span class="text-2xl">🥗</span>`;
+      }
+
+      // Meta
+      dom.resultBrand.textContent = data.brand || 'Packaged Food';
+      dom.resultProductName.textContent = data.productName || 'Food Product';
+
+      if (data.sourceType) {
+        dom.analysisSourceBadge.textContent = data.sourceType;
+        dom.analysisSourceBadge.classList.remove('hidden');
+      } else {
+        dom.analysisSourceBadge.classList.add('hidden');
+      }
+
+      const novaInfo = NOVA_LABELS[data.novaGroup] || NOVA_LABELS[3];
+      dom.resultNovaBadge.className = `inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold ${novaInfo.color}`;
+      dom.resultNovaBadge.textContent = novaInfo.label;
+
+      dom.resultCaloriesBadge.textContent = `${data.calories ?? '—'} kcal / serving`;
+
+      // Verdict Badge & Summary
+      dom.verdictBadge.className = `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold mb-2 ${theme.badgeBg}`;
+      dom.verdictDot.className = `w-2 h-2 rounded-full ${theme.dot}`;
+      dom.verdictText.textContent = theme.verdictLabel;
+      dom.resultSummary.textContent = data.summary || '';
+
+      // Personalized Alerts
+      renderPersonalizedAlerts(data);
+
+      // Positives & Negatives
+      renderBreakdownLists(data);
+
+      // Nutrition Bars
+      renderNutritionBars(data.nutrients || {});
+
+      // Additives Inspector
+      renderAdditives(data.additives || []);
+
+      // History Lists
+      renderRecentScans();
+
+      // Switch View & Animate Score Ring
+      switchView('result');
+      animateScoreRing(data.score, theme.stroke);
+    }
+
+    function animateScoreRing(targetScore, strokeColor) {
+      const circumference = 2 * Math.PI * 42; // 263.89
+      dom.scoreRingProgress.style.stroke = strokeColor;
+      dom.scoreRingProgress.style.strokeDashoffset = circumference;
+      dom.scoreNumber.textContent = '0';
+
+      // Trigger transition on next frame
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const offset = circumference - (targetScore / 100) * circumference;
+          dom.scoreRingProgress.style.strokeDashoffset = offset;
+        });
+      });
+
+      // Smooth count-up animation
+      const duration = 850;
+      const start = performance.now();
+      function step(now) {
+        const progress = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        dom.scoreNumber.textContent = Math.round(eased * targetScore);
+        if (progress < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function renderPersonalizedAlerts(data) {
+      const flags = (data.dietaryFlags || []).map(f => String(f));
+      const matchedAlerts = [];
+
+      DIETARY_FILTERS.forEach(filter => {
+        if (!state.activeFilters.has(filter.id)) return;
+        const matchingFlag = flags.find(flag => {
+          const lowerFlag = flag.toLowerCase();
+          return filter.matchKeywords.some(kw => lowerFlag.includes(kw));
+        });
+        if (matchingFlag) {
+          matchedAlerts.push({ filterLabel: filter.label, flagText: matchingFlag });
+        }
+      });
+
+      if (matchedAlerts.length > 0) {
+        dom.dietaryAlertBanner.classList.remove('hidden');
+        dom.dietaryAlertTags.innerHTML = matchedAlerts.map(item => `
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-rose-200 text-rose-700 text-[11px] font-semibold">
+            <span>${item.filterLabel}:</span>
+            <span class="font-normal">${item.flagText}</span>
+          </span>
+        `).join('');
+      } else {
+        dom.dietaryAlertBanner.classList.add('hidden');
+      }
+    }
+
+    function renderBreakdownLists(data) {
+      const negatives = data.negatives || [];
+      const positives = data.positives || [];
+
+      if (negatives.length > 0) {
+        dom.negativesSection.classList.remove('hidden');
+        dom.negativesList.innerHTML = negatives.map(item => `
+          <div class="flex items-start gap-2.5 p-3 rounded-2xl bg-rose-50/60 border border-rose-100">
+            <span class="w-5 h-5 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/><circle cx="12" cy="12" r="10"/></svg>
+            </span>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-slate-800">${item.title}</div>
+              <div class="text-xs text-slate-600 mt-0.5 leading-relaxed">${item.detail}</div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        dom.negativesSection.classList.add('hidden');
+      }
+
+      if (positives.length > 0) {
+        dom.positivesSection.classList.remove('hidden');
+        dom.positivesList.innerHTML = positives.map(item => `
+          <div class="flex items-start gap-2.5 p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+            <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-slate-800">${item.title}</div>
+              <div class="text-xs text-slate-600 mt-0.5 leading-relaxed">${item.detail}</div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        dom.positivesSection.classList.add('hidden');
+      }
+
+      dom.breakdownDivider.classList.toggle('hidden', negatives.length === 0 || positives.length === 0);
+    }
+
+    function renderNutritionBars(nutrients) {
+      const items = [
+        { key: 'sugar', label: 'Sugar', maxRef: 50 },
+        { key: 'sodium', label: 'Sodium', maxRef: 2300 },
+        { key: 'saturatedFat', label: 'Saturated Fat', maxRef: 20 },
+        { key: 'fiber', label: 'Dietary Fiber', maxRef: 28 },
+        { key: 'protein', label: 'Protein', maxRef: 50 }
+      ];
+
+      const statusColors = {
+        good: { dot: 'bg-emerald-500', bar: 'bg-emerald-500', text: 'text-emerald-700' },
+        moderate: { dot: 'bg-amber-500', bar: 'bg-amber-500', text: 'text-amber-700' },
+        bad: { dot: 'bg-rose-500', bar: 'bg-rose-500', text: 'text-rose-700' }
+      };
+
+      dom.nutritionBarsList.innerHTML = items.map(meta => {
+        const n = nutrients[meta.key] || { value: 0, unit: 'g', percentDaily: 0, status: 'moderate' };
+        const colors = statusColors[n.status] || statusColors.moderate;
+        const pct = Math.max(4, Math.min(100, Number(n.percentDaily) || Math.round((n.value / meta.maxRef) * 100)));
+
+        return `
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <div class="flex items-center gap-2 font-semibold text-slate-700">
+                <span class="w-2.5 h-2.5 rounded-full ${colors.dot}"></span>
+                <span>${meta.label}</span>
+              </div>
+              <div class="font-bold text-slate-900">
+                ${n.value}${n.unit}
+                <span class="text-[11px] font-medium text-slate-400 ml-1">(${n.percentDaily ?? pct}% DV)</span>
+              </div>
+            </div>
+            <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div class="h-full rounded-full ${colors.bar} transition-all duration-700" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderAdditives(additives) {
+      if (!additives || additives.length === 0) {
+        dom.additivesCountBadge.textContent = '0 Flagged';
+        dom.additivesCountBadge.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700';
+        dom.additivesList.innerHTML = `
+          <div class="flex items-center gap-3 p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100 text-emerald-800 text-xs font-medium">
+            <svg class="w-5 h-5 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+            <span>Clean Label — No risky artificial additives or preservatives detected.</span>
+          </div>
+        `;
+        return;
+      }
+
+      dom.additivesCountBadge.textContent = `${additives.length} Found`;
+      dom.additivesCountBadge.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800';
+
+      const riskStyles = {
+        low: { badge: 'bg-emerald-100 text-emerald-800', label: 'Low Risk' },
+        moderate: { badge: 'bg-amber-100 text-amber-800', label: 'Moderate Risk' },
+        high: { badge: 'bg-rose-100 text-rose-800', label: 'High Risk' }
+      };
+
+      dom.additivesList.innerHTML = '';
+      additives.forEach((additive, idx) => {
+        const rs = riskStyles[additive.risk] || riskStyles.moderate;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'rounded-2xl border border-slate-200/80 overflow-hidden bg-slate-50/50';
+
+        wrapper.innerHTML = `
+          <button type="button" class="w-full px-3.5 py-3 flex items-center justify-between gap-2 text-left hover:bg-slate-100/70 transition-colors" aria-expanded="false">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-xs font-bold text-slate-800 truncate">${additive.name}</span>
+              ${additive.code ? `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-500 shrink-0">${additive.code}</span>` : ''}
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${rs.badge}">${rs.label}</span>
+              <svg class="w-4 h-4 text-slate-400 transition-transform duration-200 chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </button>
+          <div class="hidden px-3.5 pb-3 pt-0.5 text-xs text-slate-600 leading-relaxed border-t border-slate-200/60 bg-white additive-body">
+            ${additive.reason}
+          </div>
+        `;
+
+        const toggleBtn = wrapper.querySelector('button');
+        const bodyEl = wrapper.querySelector('.additive-body');
+        const chevron = wrapper.querySelector('.chevron-icon');
+
+        toggleBtn.addEventListener('click', () => {
+          const isOpen = !bodyEl.classList.contains('hidden');
+          bodyEl.classList.toggle('hidden', isOpen);
+          chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+          toggleBtn.setAttribute('aria-expanded', String(!isOpen));
+        });
+
+        dom.additivesList.appendChild(wrapper);
+      });
+    }
+
+    // =========================================================================
+    // 7. RECENT SCANS HISTORY
+    // =========================================================================
+
+    function addScanToHistory(scan) {
+      // Avoid duplicate consecutive entries with same name + score
+      state.recentScans = state.recentScans.filter(
+        item => !(item.productName === scan.productName && item.score === scan.score)
+      );
+      state.recentScans.unshift(scan);
+      if (state.recentScans.length > 8) state.recentScans.pop();
+      renderRecentScans();
+    }
+
+    function renderRecentScans() {
+      const count = state.recentScans.length;
+      dom.historyCountText.textContent = count;
+      dom.historyHeaderBtn.classList.toggle('hidden', count === 0);
+      dom.historyHeaderBtn.classList.toggle('inline-flex', count > 0);
+
+      const hasHistory = count > 0;
+      dom.recentScansCaptureWrap.classList.toggle('hidden', !hasHistory);
+      dom.recentScansResultWrap.classList.toggle('hidden', !hasHistory);
+
+      const renderInto = (container) => {
+        container.innerHTML = '';
+        state.recentScans.forEach(item => {
+          const theme = getScoreTheme(item.score);
+          const isCurrent = state.currentResult && state.currentResult.id === item.id;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = `w-full bg-white hover:bg-slate-50 rounded-2xl p-2.5 border flex items-center gap-3 text-left transition-all ${
+            isCurrent ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-slate-100 shadow-xs'
+          }`;
+
+          const thumbHtml = item.imageUrl
+            ? `<img src="${item.imageUrl}" alt="${item.productName}" class="w-full h-full object-cover" />`
+            : (item.svgKey && SAMPLE_SVGS[item.svgKey] ? SAMPLE_SVGS[item.svgKey] : `<span class="text-lg">🥗</span>`);
+
+          btn.innerHTML = `
+            <div class="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 shrink-0 flex items-center justify-center">
+              ${thumbHtml}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-bold text-slate-900 truncate">${item.productName}</div>
+              <div class="text-[11px] text-slate-400 truncate">${item.brand || 'Food Item'} &bull; ${item.calories ?? '—'} kcal</div>
+            </div>
+            <span class="px-2 py-0.5 rounded-lg text-[11px] font-extrabold shrink-0 ${theme.shortBadge}">
+              ${item.score}
+            </span>
+          `;
+
+          btn.addEventListener('click', () => renderResultView(item));
+          container.appendChild(btn);
+        });
+      };
+
+      renderInto(dom.recentScansCaptureList);
+      renderInto(dom.recentScansResultList);
+    }
+
+    // =========================================================================
+    // 8. WEBCAM CAPTURE MODAL
+    // =========================================================================
+
+    async function openWebcamModal() {
+      dom.webcamModal.classList.remove('hidden');
+      dom.webcamError.classList.add('hidden');
+      dom.webcamVideo.classList.remove('hidden');
+      dom.captureWebcamBtn.disabled = false;
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false
+        });
+        state.webcamStream = stream;
+        dom.webcamVideo.srcObject = stream;
+      } catch (err) {
+        dom.webcamVideo.classList.add('hidden');
+        dom.webcamError.classList.remove('hidden');
+        dom.captureWebcamBtn.disabled = true;
+      }
+    }
+
+    function closeWebcamModal() {
+      dom.webcamModal.classList.add('hidden');
+      if (state.webcamStream) {
+        state.webcamStream.getTracks().forEach(track => track.stop());
+        state.webcamStream = null;
+      }
+      dom.webcamVideo.srcObject = null;
+    }
+
+    function captureFromWebcam() {
+      if (!state.webcamStream) return;
+      const { dataUrl, base64Data, mimeType } = compressImageFromElement(dom.webcamVideo);
+      closeWebcamModal();
+      processCapturedImage(dataUrl, base64Data, mimeType, 'webcam-capture.jpg');
+    }
+
+    // =========================================================================
+    // 9. EVENT LISTENERS & INITIALIZATION
+    // =========================================================================
+
+    async function handleFileSelection(file) {
+      if (!file) return;
+      try {
+        const { dataUrl, base64Data, mimeType } = await loadFileAsCompressedImage(file);
+        processCapturedImage(dataUrl, base64Data, mimeType, file.name);
+      } catch (err) {
+        showToast(err.message || 'Could not process image.', 'warn');
+      }
+    }
+
+    dom.cameraInput.addEventListener('change', (e) => {
+      handleFileSelection(e.target.files?.[0]);
+      e.target.value = '';
+    });
+
+    dom.fileInput.addEventListener('change', (e) => {
+      handleFileSelection(e.target.files?.[0]);
+      e.target.value = '';
+    });
+
+    // Drag & Drop support on capture card
+    ['dragenter', 'dragover'].forEach(evtName => {
+      dom.dropZone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dom.dropZone.classList.add('drop-active');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(evtName => {
+      dom.dropZone.addEventListener(evtName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dom.dropZone.classList.remove('drop-active');
+      });
+    });
+
+    dom.dropZone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer?.files?.[0];
+      if (file) handleFileSelection(file);
+    });
+
+    // Navigation & Controls
+    dom.homeLogoBtn.addEventListener('click', () => switchView('capture'));
+    dom.scanAnotherBtn.addEventListener('click', () => switchView('capture'));
+    dom.historyHeaderBtn.addEventListener('click', () => {
+      switchView('capture');
+      setTimeout(() => {
+        dom.recentScansCaptureWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    });
+
+    dom.clearHistoryBtn.addEventListener('click', () => {
+      state.recentScans = [];
+      renderRecentScans();
+      showToast('Scan history cleared.', 'info');
+    });
+
+    // Webcam Modal Controls
+    dom.openWebcamBtn.addEventListener('click', openWebcamModal);
+    dom.closeWebcamBtn.addEventListener('click', closeWebcamModal);
+    dom.captureWebcamBtn.addEventListener('click', captureFromWebcam);
+    dom.webcamModal.addEventListener('click', (e) => {
+      if (e.target === dom.webcamModal) closeWebcamModal();
+    });
+
+    // Boot App
+    renderDietaryFilters();
+    renderSampleProducts();
+  </script>
+</body>
+</html>
