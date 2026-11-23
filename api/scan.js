@@ -5,14 +5,16 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
+    console.error('Missing GEMINI_API_KEY env var');
     return res.status(500).json({ error: 'GEMINI_API_KEY is not set in Vercel' });
   }
 
   const { base64Image, mimeType, prompt, responseSchema } = req.body;
   const models = [
+    'gemini-3.1-flash-lite',
     'gemini-3.5-flash-lite',
+    'gemini-3.6-flash',
     'gemini-3.8-flash',
-    'gemini-4-hydrogen',
   ];
 
   const payload = JSON.stringify({
@@ -51,22 +53,32 @@ export default async function handler(req, res) {
       });
 
       const data = await response.json();
+
       if (response.ok) {
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        return res.status(200).json(JSON.parse(text));
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        const answerPart = parts.find((p) => !p.thought && p.text) || parts[parts.length - 1];
+        const cleanText = answerPart?.text?.replace(/^```json\s*|\s*```$/g, '').trim();
+
+        if (cleanText) {
+          return res.status(200).json(JSON.parse(cleanText));
+        }
+        console.error(`Model ${model} returned empty text:`, JSON.stringify(data));
+      } else {
+        console.error(`Model ${model} failed (${response.status}):`, JSON.stringify(data));
       }
 
       lastStatus = response.status;
       lastData = data;
 
-      // Only fall back to the next model on temporary overload or rate-limit errors
-      if (response.status !== 503 && response.status !== 429) {
+      // Fall back to the next model on overload, rate limit, or unavailable model
+      if (![404, 429, 500, 503].includes(response.status)) {
         break;
       }
     }
 
     return res.status(lastStatus).json(lastData);
   } catch (error) {
+    console.error('Handler crash:', error.message);
     return res.status(500).json({ error: error.message });
   }
 }
