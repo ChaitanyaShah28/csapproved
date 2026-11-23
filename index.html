@@ -984,9 +984,26 @@
       ]
     };
 
-    async function analyzeImageWithGemini(base64Data, mimeType) {
-      const apiKey = ""; // Provided automatically at runtime by Canvas
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+async function analyzeImageWithGemini(base64Data, mimeType) {
+  // Keep your existing prompt and schema/responseSchema variables here
+
+  const response = await fetch('/api/scan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      base64Image: base64Data,
+      mimeType: mimeType || 'image/jpeg',
+      prompt: prompt,               // use the exact prompt variable name in your function
+      responseSchema: responseSchema // use the exact schema variable name in your function
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Scan failed with status ${response.status}`);
+  }
+
+  return await response.json();
+};
 
       const prompt = `You are PureScan, an expert nutritionist and food label analyst.
 Analyze the provided food product or nutrition label photo.
