@@ -158,7 +158,7 @@ Set hasNutritionTable to true ONLY if a Nutrition Facts table is clearly visible
     const groqPrompt = `${enhancedPrompt}\n\nKeep all text fields brief. Return ONLY valid JSON matching this exact schema (no markdown, no extra text):\n${JSON.stringify(enhancedSchema)}`;
     const groqBody = JSON.stringify({
       model: 'qwen/qwen3.8-27b',
-      max_completion_tokens: 550,
+      max_completion_tokens: 750,
       response_format: { type: 'json_object' },
       messages: [
         {
