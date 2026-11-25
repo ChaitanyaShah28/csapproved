@@ -1044,7 +1044,7 @@ Set isFoodProduct to true ONLY if it is an edible food/drink item or food label.
 If isFoodProduct is true, extract accurate nutrition facts, ingredients, NOVA food processing group (1=Unprocessed, 2=Culinary Ingredient, 3=Processed, 4=Ultra-Processed), and calculate an objective health score from 0 to 100 (75-100 = Approved, 45-74 = Moderate, 0-44 = Avoid).
 If the photo is a whole food (like an apple or banana) or front-of-pack without a visible table, estimate standard nutritional values for that product.
 For dietaryFlags, include applicable tags from this vocabulary: "High Sugar", "Artificial Additives", "Contains Palm Oil", "Not Vegan", "Contains Gluten".
-Keep summary concise (1-2 clear sentences). Provide exact values in positives/negatives.If score is below 60, include 2 to 3 practical healthier alternatives in alternatives (e.g., roasted makhana, plain oats, roasted chana, or fresh fruit) with a short name and 1-sentence reason why it is cleaner. If score is 60 or above, return an empty array [] for alternatives.`;
+Keep summary concise (1-2 clear sentences). Provide exact values in positives/negatives.If score is below 75, include 2 to 3 practical healthier alternatives in alternatives. ALWAYS prioritize same-category swaps first — for example, if the scanned item is a dark chocolate, suggest cleaner dark chocolates (such as 70%–85%+ cocoa bars with cocoa butter, no palm oil, and minimal or no refined sugar, e.g., The Whole Truth, Amul 75%/90% Dark, or Mason & Co.); if it is a soda, suggest a cleaner beverage; if it is chips, suggest a cleaner crunchy snack. Keep each name short and the reason to 1 clear sentence. If score is 75 or above, return an empty array [] for alternatives.`;
 
       const response = await fetch('/api/scan', {
         method: 'POST',
@@ -1482,9 +1482,9 @@ Keep summary concise (1-2 clear sentences). Provide exact values in positives/ne
     }
 
 
-    function renderAlternatives(data) {
+function renderAlternatives(data) {
       const swaps = data.alternatives || [];
-      if (data.score >= 60 || swaps.length === 0) {
+      if (data.score >= 75 || swaps.length === 0) {
         dom.alternativesCard.classList.add('hidden');
         return;
       }
