@@ -912,7 +912,7 @@ function getScoreTheme(score) {
     // 4. GEMINI VISION API INTEGRATION (WITH EXPONENTIAL BACKOFF & FALLBACK)
     // =========================================================================
 
-    const GEMINI_RESPONSE_SCHEMA = {
+   const GEMINI_RESPONSE_SCHEMA = {
       type: 'OBJECT',
       properties: {
         isFoodProduct: { type: 'BOOLEAN' },
@@ -921,6 +921,24 @@ function getScoreTheme(score) {
         score: { type: 'INTEGER' },
         verdict: { type: 'STRING', enum: ['Approved', 'Moderate', 'Avoid'] },
         summary: { type: 'STRING' },
+        alternatives: {
+          type: 'ARRAY',
+          description: 'Required when score < 75. 2 to 3 healthier real-world alternatives in the exact same product category.',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              name: {
+                type: 'STRING',
+                description: 'Specific cleaner brand, minimally processed option, or homemade equivalent in the same category'
+              },
+              why: {
+                type: 'STRING',
+                description: 'One short sentence explaining why it is healthier than the scanned product'
+              }
+            },
+            required: ['name', 'why']
+          }
+        },
         novaGroup: { type: 'INTEGER' },
         calories: { type: 'INTEGER' },
         nutrients: {
@@ -1017,23 +1035,12 @@ function getScoreTheme(score) {
         dietaryFlags: {
           type: 'ARRAY',
           items: { type: 'STRING' }
-        },
-        alternatives: {
-          type: 'ARRAY',
-          items: {
-            type: 'OBJECT',
-            properties: {
-              name: { type: 'STRING' },
-              why: { type: 'STRING' }
-            },
-            required: ['name', 'why']
-          }
         }
       },
       required: [
-        'productName', 'brand', 'score', 'verdict', 'summary',
-        'novaGroup', 'calories', 'nutrients', 'positives',
-        'negatives', 'additives', 'dietaryFlags','isFoodProduct','alternatives'
+        'isFoodProduct', 'productName', 'brand', 'score', 'verdict', 'summary',
+        'alternatives', 'novaGroup', 'calories', 'nutrients', 'positives',
+        'negatives', 'additives', 'dietaryFlags'
       ]
     };
 
@@ -1044,7 +1051,7 @@ Set isFoodProduct to true ONLY if it is an edible food/drink item or food label.
 If isFoodProduct is true, extract accurate nutrition facts, ingredients, NOVA food processing group (1=Unprocessed, 2=Culinary Ingredient, 3=Processed, 4=Ultra-Processed), and calculate an objective health score from 0 to 100 (75-100 = Approved, 45-74 = Moderate, 0-44 = Avoid).
 If the photo is a whole food (like an apple or banana) or front-of-pack without a visible table, estimate standard nutritional values for that product.
 For dietaryFlags, include applicable tags from this vocabulary: "High Sugar", "Artificial Additives", "Contains Palm Oil", "Not Vegan", "Contains Gluten".
-Keep summary concise (1-2 clear sentences). Provide exact values in positives/negatives.If score is below 75, include 2 to 3 practical healthier alternatives in alternatives. ALWAYS prioritize same-category swaps first — for example, if the scanned item is a dark chocolate, suggest cleaner dark chocolates (such as 70%–85%+ cocoa bars with cocoa butter, no palm oil, and minimal or no refined sugar, e.g., The Whole Truth, Amul 75%/90% Dark, or Mason & Co.); if it is a soda, suggest a cleaner beverage; if it is chips, suggest a cleaner crunchy snack. Keep each name short and the reason to 1 clear sentence. If score is 75 or above, return an empty array [] for alternatives.`;
+Keep summary concise (1-2 clear sentences). Provide exact values in positives/negatives.If score is below 75, you MUST populate alternatives with 2 to 3 healthier real-world options in the EXACT SAME food or beverage category as the scanned item (cleaner brands available in India, minimally processed versions, or simple homemade equivalents) that solve the scanned item's specific nutritional flaws. Only return [] for alternatives if score is 75 or above.`;
 
       const response = await fetch('/api/scan', {
         method: 'POST',
@@ -1488,6 +1495,18 @@ function renderAlternatives(data) {
         dom.alternativesCard.classList.add('hidden');
         return;
       }
+
+      dom.alternativesCard.classList.remove('hidden');
+      dom.alternativesList.innerHTML = swaps.map(item => `
+        <div class="flex items-start gap-2.5 p-3 rounded-2xl bg-white border border-emerald-100">
+          <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">✓</span>
+          <div class="min-w-0">
+            <div class="text-xs font-bold text-slate-900">${item.name}</div>
+            <div class="text-xs text-slate-600 mt-0.5 leading-relaxed">${item.why}</div>
+          </div>
+        </div>
+      `).join('');
+    }
 
       dom.alternativesCard.classList.remove('hidden');
       dom.alternativesList.innerHTML = swaps.map(item => `
