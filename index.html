@@ -1508,18 +1508,6 @@ function renderAlternatives(data) {
       `).join('');
     }
 
-      dom.alternativesCard.classList.remove('hidden');
-      dom.alternativesList.innerHTML = swaps.map(item => `
-        <div class="flex items-start gap-2.5 p-3 rounded-2xl bg-white border border-emerald-100">
-          <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">✓</span>
-          <div class="min-w-0">
-            <div class="text-xs font-bold text-slate-900">${item.name}</div>
-            <div class="text-xs text-slate-600 mt-0.5 leading-relaxed">${item.why}</div>
-          </div>
-        </div>
-      `).join('');
-    }
-
     function showVerdictPopup(data, theme) {
       let icon = '✅';
       let iconBg = 'bg-emerald-100 text-emerald-700';
